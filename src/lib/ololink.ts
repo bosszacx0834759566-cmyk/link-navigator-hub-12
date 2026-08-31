@@ -226,7 +226,9 @@ function generateSites(count: number, startIndex: number, seed: number): Asset[]
     const healthOf = (): Health => (rand() < 0.88 ? 'NOMINAL' : rand() < 0.75 ? 'DEGRADED' : 'OFFLINE');
 
     // Ground station anchor — curated land coordinate + small local jitter (≤ ~35 km).
-    const [aLat, aLon] = LAND_ANCHORS[(i * 3) % LAND_ANCHORS.length]!;
+    // GENERATED_ANCHORS excludes the anchors already used by the curated sites
+    // (Bangkok / Denver) so generated sites never overlap HAPS-01 / HAPS-02.
+    const [aLat, aLon] = GENERATED_ANCHORS[i % GENERATED_ANCHORS.length]!;
     const gsLat = +(aLat + (rand() - 0.5) * 0.4).toFixed(2);
     const gsLon = +(aLon + (rand() - 0.5) * 0.4).toFixed(2);
 
