@@ -13,6 +13,7 @@ import {
   type ScenarioProfile,
 } from '@/lib/ololink';
 import { solveContacts } from '@/lib/contacts';
+import { advanceChains, initialChains, type ChainTelemetry } from '@/lib/chain';
 import { resetSceneTime, sceneTime, setSceneRunning } from '@/lib/geo2d';
 
 export type RailId =
@@ -91,6 +92,8 @@ export interface OloLinkState {
   windows: Record<string, string | null>;
   /** open satellite contacts as `${satId}|${receiverId}` — shared by both views */
   contacts: string[];
+  /** live LEO→HAPS→Drone→Ground chain telemetry, keyed by site number */
+  chains: Record<string, ChainTelemetry>;
   reportWindow: (receiverId: string, satId: string | null) => void;
   toggleTech: (t: Tech) => void;
   setScenario: (id: ScenarioId) => void;
@@ -127,6 +130,7 @@ export function useOloLink(): OloLinkState {
   const [telemetry, setTelemetry] = useState<Telemetry>(SCENARIOS.clear.telemetry);
   const [windows, setWindows] = useState<Record<string, string | null>>({});
   const [contacts, setContacts] = useState<string[]>([]);
+  const [chains, setChains] = useState<Record<string, ChainTelemetry>>(() => initialChains('clear'));
   const [events, setEvents] = useState<EventEntry[]>([
     { id: 'e0', time: 'T+00:00', level: 'INFO', text: 'Orchestration session initialised' },
     { id: 'e1', time: 'T+00:02', level: 'OK', text: 'Constellation handshake complete' },
@@ -272,6 +276,7 @@ export function useOloLink(): OloLinkState {
     setTelemetry(SCENARIOS.clear.telemetry);
     setWindows({});
     setContacts([]);
+    setChains(initialChains('clear'));
     held.current = new Set();
     resetSceneTime();
     setRunning(true);
@@ -280,6 +285,26 @@ export function useOloLink(): OloLinkState {
       { id: 'e1', time: 'T+00:00', level: 'OK', text: 'All laser/comm links re-initialised' },
     ]);
   }, []);
+
+  /* Chain telemetry (LEO -> HAPS -> Drone -> Ground) advances from the same
+   * shared mission state, so 2D and 3D Inspectors always agree. */
+  const chainCtx = useRef({ scenarioId, bandwidth: telemetry.bandwidth, windows });
+  chainCtx.current = { scenarioId, bandwidth: telemetry.bandwidth, windows };
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => {
+      const c = chainCtx.current;
+      setChains((prev) =>
+        advanceChains(prev, 1, {
+          scenario: c.scenarioId,
+          baseBandwidth: c.bandwidth,
+          windows: c.windows,
+        })
+      );
+    }, 1000);
+    return () => clearInterval(t);
+  }, [running]);
 
   const links = useMemo(() => linkStates(profile, reroutingIds), [profile, reroutingIds]);
   const route = useMemo(() => routeSegments(profile.route, profile.routeSegmentIds), [profile]);
@@ -310,6 +335,7 @@ export function useOloLink(): OloLinkState {
     techFilter,
     windows,
     contacts,
+    chains,
     reportWindow,
     toggleTech: (t) => setTechFilter((f) => ({ ...f, [t]: !f[t] })),
     setScenario,
