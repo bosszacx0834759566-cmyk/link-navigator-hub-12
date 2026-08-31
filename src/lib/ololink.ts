@@ -210,6 +210,14 @@ const LAND_ANCHORS: ReadonlyArray<readonly [lat: number, lon: number]> = [
   [-34.6, -58.38],    // Buenos Aires, Argentina
 ];
 
+/** Curated anchors already occupied by the hand-written sites (HAPS-01/02). */
+const CURATED_ANCHOR_KEYS = new Set(['39.74,-104.99', '13.75,100.52']);
+
+/** Anchors available to generated sites — spread apart, no curated overlap. */
+const GENERATED_ANCHORS = LAND_ANCHORS.filter(
+  ([lat, lon]) => !CURATED_ANCHOR_KEYS.has(`${lat},${lon}`),
+);
+
 /**
  * Generate co-located operation sites: each site N is a cluster of
  * HAPS-N (18–20 km, above the cloud deck), Drone-N (below the clouds,
@@ -226,7 +234,9 @@ function generateSites(count: number, startIndex: number, seed: number): Asset[]
     const healthOf = (): Health => (rand() < 0.88 ? 'NOMINAL' : rand() < 0.75 ? 'DEGRADED' : 'OFFLINE');
 
     // Ground station anchor — curated land coordinate + small local jitter (≤ ~35 km).
-    const [aLat, aLon] = LAND_ANCHORS[(i * 3) % LAND_ANCHORS.length]!;
+    // GENERATED_ANCHORS excludes the anchors already used by the curated sites
+    // (Bangkok / Denver) so generated sites never overlap HAPS-01 / HAPS-02.
+    const [aLat, aLon] = GENERATED_ANCHORS[i % GENERATED_ANCHORS.length]!;
     const gsLat = +(aLat + (rand() - 0.5) * 0.4).toFixed(2);
     const gsLon = +(aLon + (rand() - 0.5) * 0.4).toFixed(2);
 
