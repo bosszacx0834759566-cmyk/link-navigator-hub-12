@@ -130,6 +130,7 @@ export function useOloLink(): OloLinkState {
   const [telemetry, setTelemetry] = useState<Telemetry>(SCENARIOS.clear.telemetry);
   const [windows, setWindows] = useState<Record<string, string | null>>({});
   const [contacts, setContacts] = useState<string[]>([]);
+  const [chains, setChains] = useState<Record<string, ChainTelemetry>>(() => initialChains('clear'));
   const [events, setEvents] = useState<EventEntry[]>([
     { id: 'e0', time: 'T+00:00', level: 'INFO', text: 'Orchestration session initialised' },
     { id: 'e1', time: 'T+00:02', level: 'OK', text: 'Constellation handshake complete' },
@@ -275,6 +276,7 @@ export function useOloLink(): OloLinkState {
     setTelemetry(SCENARIOS.clear.telemetry);
     setWindows({});
     setContacts([]);
+    setChains(initialChains('clear'));
     held.current = new Set();
     resetSceneTime();
     setRunning(true);
@@ -283,6 +285,26 @@ export function useOloLink(): OloLinkState {
       { id: 'e1', time: 'T+00:00', level: 'OK', text: 'All laser/comm links re-initialised' },
     ]);
   }, []);
+
+  /* Chain telemetry (LEO -> HAPS -> Drone -> Ground) advances from the same
+   * shared mission state, so 2D and 3D Inspectors always agree. */
+  const chainCtx = useRef({ scenarioId, bandwidth: telemetry.bandwidth, windows });
+  chainCtx.current = { scenarioId, bandwidth: telemetry.bandwidth, windows };
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => {
+      const c = chainCtx.current;
+      setChains((prev) =>
+        advanceChains(prev, 1, {
+          scenario: c.scenarioId,
+          baseBandwidth: c.bandwidth,
+          windows: c.windows,
+        })
+      );
+    }, 1000);
+    return () => clearInterval(t);
+  }, [running]);
 
   const links = useMemo(() => linkStates(profile, reroutingIds), [profile, reroutingIds]);
   const route = useMemo(() => routeSegments(profile.route, profile.routeSegmentIds), [profile]);
@@ -313,6 +335,7 @@ export function useOloLink(): OloLinkState {
     techFilter,
     windows,
     contacts,
+    chains,
     reportWindow,
     toggleTech: (t) => setTechFilter((f) => ({ ...f, [t]: !f[t] })),
     setScenario,
