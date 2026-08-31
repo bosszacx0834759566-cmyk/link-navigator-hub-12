@@ -72,6 +72,42 @@ function PathChain({
   );
 }
 
+function Storage({ used }: { used: number }) {
+  const pct = Math.min(100, (used / STORAGE_TB) * 100);
+  return (
+    <div className="mt-3">
+      <div className="text-[9px] uppercase tracking-[0.24em] text-muted-foreground/60">Storage</div>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
+        <div
+          className={cn('h-full rounded-full transition-[width] duration-700', pct > 85 ? 'bg-rose-400' : 'bg-sky-400')}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-1 flex justify-between font-mono text-[10px] tabular-nums text-muted-foreground">
+        <span>Used {used.toFixed(2)} TB</span>
+        <span>Free {(STORAGE_TB - used).toFixed(2)} TB</span>
+      </div>
+    </div>
+  );
+}
+
+function NodeLink({ state, id, label }: { state: OloLinkState; id?: string | undefined; label: string }) {
+  const name = id ? ASSET_BY_ID[id]?.name : undefined;
+  if (!name) return <Line label={label} value="No contact" tone="text-muted-foreground" />;
+  return (
+    <div className="flex items-baseline justify-between border-b border-white/[0.04] py-1.5 last:border-0">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">{label}</span>
+      <button
+        type="button"
+        onClick={() => state.select({ type: 'asset', id })}
+        className="font-mono text-[11px] text-sky-300 transition-colors hover:text-sky-200"
+      >
+        {name}
+      </button>
+    </div>
+  );
+}
+
 function AssetBody({ state, id }: { state: OloLinkState; id: string }) {
   const asset = ASSET_BY_ID[id];
   if (!asset) return null;
@@ -80,9 +116,11 @@ function AssetBody({ state, id }: { state: OloLinkState; id: string }) {
   const available = Array.from(new Set(related.map((l) => l.segment.tech)));
   const active = related.find((l) => l.status === 'ACTIVE');
   const currentTech = active ? TECH_META[active.segment.tech] : null;
+  const site = chainForAsset(state.chains, id);
 
   return (
     <>
+      <Line label="Name" value={asset.name} />
       <Line label="Class" value={KIND_META[asset.kind].label} />
       <Line
         label="Status"
@@ -90,6 +128,42 @@ function AssetBody({ state, id }: { state: OloLinkState; id: string }) {
         tone={onRoute ? 'text-emerald-300' : asset.health === 'NOMINAL' ? 'text-emerald-300' : 'text-amber-300'}
       />
       <Line label="Altitude" value={asset.altKm > 0 ? `${asset.altKm} km` : 'Surface'} />
+
+      {/* --- role-specific chain readout (identical in 2D and 3D) --- */}
+      {asset.kind === 'haps' && site && (
+        <>
+          <NodeLink state={state} id={site.chain.leoId ?? undefined} label="Receiving from LEO" />
+          <Line label="Ingest rate" value={`${site.chain.hapsInGbps.toFixed(2)} Gbps`} />
+          <Line label="Data received" value={`${site.chain.hapsReceivedTb.toFixed(2)} TB`} />
+          <NodeLink state={state} id={site.site.droneId} label="Connected drone" />
+          <Storage used={site.chain.hapsStoredTb} />
+        </>
+      )}
+
+      {asset.kind === 'drone' && site && (
+        <>
+          <NodeLink state={state} id={site.site.hapsId} label="Receiving from HAPS" />
+          <Line label="Ingest rate" value={`${site.chain.droneInGbps.toFixed(2)} Gbps`} />
+          <Line label="Data received" value={`${site.chain.droneReceivedTb.toFixed(2)} TB`} />
+          <Line label="Current mode" value={site.chain.droneMode} tone="text-sky-300" />
+          <NodeLink state={state} id={site.site.groundId} label="Connected ground station" />
+          <Storage used={site.chain.droneStoredTb} />
+        </>
+      )}
+
+      {asset.kind === 'ground' && site && (
+        <>
+          <NodeLink state={state} id={site.site.droneId} label="Connected drone" />
+          <Line
+            label="Receiving"
+            value={site.chain.groundReceiving ? 'RECEIVING' : 'IDLE'}
+            tone={site.chain.groundReceiving ? 'text-emerald-300' : 'text-muted-foreground'}
+          />
+          <Line label="Downlink rate" value={`${site.chain.groundInGbps.toFixed(2)} Gbps`} />
+          <Line label="Data received" value={`${site.chain.groundReceivedTb.toFixed(2)} TB`} />
+        </>
+      )}
+
       <Line label="Role" value={onRoute ? 'Adaptive relay' : asset.role} />
       <Line
         label="Current link"
@@ -129,6 +203,7 @@ function AssetBody({ state, id }: { state: OloLinkState; id: string }) {
     </>
   );
 }
+
 
 function LinkBody({ link, state }: { link: LinkState; state: OloLinkState }) {
   const meta = TECH_META[link.segment.tech];
