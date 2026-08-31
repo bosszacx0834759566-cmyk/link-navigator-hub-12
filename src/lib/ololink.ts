@@ -210,6 +210,14 @@ const LAND_ANCHORS: ReadonlyArray<readonly [lat: number, lon: number]> = [
   [-34.6, -58.38],    // Buenos Aires, Argentina
 ];
 
+/** Curated anchors already occupied by the hand-written sites (HAPS-01/02). */
+const CURATED_ANCHOR_KEYS = new Set(['39.74,-104.99', '13.75,100.52']);
+
+/** Anchors available to generated sites — spread apart, no curated overlap. */
+const GENERATED_ANCHORS = LAND_ANCHORS.filter(
+  ([lat, lon]) => !CURATED_ANCHOR_KEYS.has(`${lat},${lon}`),
+);
+
 /**
  * Generate co-located operation sites: each site N is a cluster of
  * HAPS-N (18–20 km, above the cloud deck), Drone-N (below the clouds,
