@@ -13,6 +13,7 @@ import {
   type ScenarioProfile,
 } from '@/lib/ololink';
 import { solveContacts } from '@/lib/contacts';
+import { advanceChains, initialChains, type ChainTelemetry } from '@/lib/chain';
 import { resetSceneTime, sceneTime, setSceneRunning } from '@/lib/geo2d';
 
 export type RailId =
