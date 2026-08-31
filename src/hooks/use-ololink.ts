@@ -92,6 +92,8 @@ export interface OloLinkState {
   windows: Record<string, string | null>;
   /** open satellite contacts as `${satId}|${receiverId}` — shared by both views */
   contacts: string[];
+  /** live LEO→HAPS→Drone→Ground chain telemetry, keyed by site number */
+  chains: Record<string, ChainTelemetry>;
   reportWindow: (receiverId: string, satId: string | null) => void;
   toggleTech: (t: Tech) => void;
   setScenario: (id: ScenarioId) => void;
