@@ -762,7 +762,7 @@ export function ContextPanel({ state }: { state: OloLinkState }) {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -24, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-          className="pointer-events-auto absolute bottom-0 left-0 top-14 z-20 flex w-[336px] flex-col border-r border-white/[0.06] bg-[#070b14]/88 shadow-[24px_0_60px_-40px_rgba(0,0,0,0.95)] backdrop-blur-xl"
+          className="pointer-events-auto absolute bottom-3 left-3 top-16 z-20 flex w-[336px] flex-col overflow-hidden rounded-2xl border border-white/20 bg-white/15 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45)] backdrop-blur-2xl backdrop-saturate-150"
         >
           <header className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
             <div>

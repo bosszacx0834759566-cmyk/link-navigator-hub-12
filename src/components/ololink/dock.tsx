@@ -51,7 +51,7 @@ function Popover({ children }: { children: React.ReactNode }) {
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 8, opacity: 0 }}
       transition={{ duration: 0.16 }}
-      className="absolute bottom-[52px] left-1/2 w-[320px] -translate-x-1/2 rounded-xl border border-white/[0.08] bg-[#070b14]/92 p-3 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.95)] backdrop-blur-xl"
+      className="absolute bottom-[52px] left-1/2 w-[320px] -translate-x-1/2 rounded-2xl border border-white/20 bg-white/15 p-3 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.45)] backdrop-blur-2xl backdrop-saturate-150"
     >
       {children}
     </motion.div>
