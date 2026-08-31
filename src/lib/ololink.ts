@@ -210,13 +210,63 @@ const LAND_ANCHORS: ReadonlyArray<readonly [lat: number, lon: number]> = [
   [-34.6, -58.38],    // Buenos Aires, Argentina
 ];
 
-/** Curated anchors already occupied by the hand-written sites (HAPS-01/02). */
-const CURATED_ANCHOR_KEYS = new Set(['39.74,-104.99', '13.75,100.52']);
+/** Anchors already occupied by the hand-written sites (HAPS-01/02). */
+const CURATED_ANCHORS: ReadonlyArray<readonly [number, number]> = [
+  [39.74, -104.99], // Denver — HAPS-02 / Drone-02 / GS-02
+  [13.75, 100.52],  // Bangkok — HAPS-01 / Drone-01 / GS-01
+];
 
-/** Anchors available to generated sites — spread apart, no curated overlap. */
-const GENERATED_ANCHORS = LAND_ANCHORS.filter(
-  ([lat, lon]) => !CURATED_ANCHOR_KEYS.has(`${lat},${lon}`),
-);
+/** Great-circle distance in km between two lat/lon pairs. */
+function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLon = toRad(bLon - aLon);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** No two sites may sit closer than this — keeps the globe readable. */
+const MIN_SITE_SEPARATION_KM = 2000;
+
+/**
+ * Greedy farthest-point selection over the land anchors: repeatedly take the
+ * anchor whose nearest already-used site is the furthest away. Guarantees that
+ * every generated site is well separated from the curated sites and from each
+ * other (anchors closer than MIN_SITE_SEPARATION_KM are skipped when possible).
+ */
+function spreadAnchors(count: number): Array<readonly [number, number]> {
+  const used: Array<readonly [number, number]> = [...CURATED_ANCHORS];
+  const pool = LAND_ANCHORS.filter(
+    ([lat, lon]) => !CURATED_ANCHORS.some(([cLat, cLon]) => lat === cLat && lon === cLon),
+  );
+  const picked: Array<readonly [number, number]> = [];
+
+  for (let k = 0; k < count && pool.length > 0; k++) {
+    let bestIdx = 0;
+    let bestDist = -1;
+    pool.forEach(([lat, lon], idx) => {
+      const nearest = Math.min(...used.map(([uLat, uLon]) => distanceKm(lat, lon, uLat, uLon)));
+      if (nearest > bestDist) {
+        bestDist = nearest;
+        bestIdx = idx;
+      }
+    });
+    const chosen = pool.splice(bestIdx, 1)[0]!;
+    picked.push(chosen);
+    used.push(chosen);
+    if (bestDist < MIN_SITE_SEPARATION_KM) {
+      console.warn(
+        `[ololink] site anchor ${chosen[0]},${chosen[1]} is only ${Math.round(bestDist)} km from its nearest neighbour`,
+      );
+    }
+  }
+  return picked;
+}
+
+/** Well-separated anchors for the generated sites (site 03 onwards). */
+const GENERATED_ANCHORS = spreadAnchors(8);
 
 /**
  * Generate co-located operation sites: each site N is a cluster of
@@ -233,12 +283,11 @@ function generateSites(count: number, startIndex: number, seed: number): Asset[]
     const region = FLEET_REGIONS[i % FLEET_REGIONS.length]!;
     const healthOf = (): Health => (rand() < 0.88 ? 'NOMINAL' : rand() < 0.75 ? 'DEGRADED' : 'OFFLINE');
 
-    // Ground station anchor — curated land coordinate + small local jitter (≤ ~35 km).
-    // GENERATED_ANCHORS excludes the anchors already used by the curated sites
-    // (Bangkok / Denver) so generated sites never overlap HAPS-01 / HAPS-02.
+    // Ground station anchor — a globally spread land coordinate, jitter kept
+    // tiny (≤ ~20 km) so separation between sites stays intact.
     const [aLat, aLon] = GENERATED_ANCHORS[i % GENERATED_ANCHORS.length]!;
-    const gsLat = +(aLat + (rand() - 0.5) * 0.4).toFixed(2);
-    const gsLon = +(aLon + (rand() - 0.5) * 0.4).toFixed(2);
+    const gsLat = +(aLat + (rand() - 0.5) * 0.2).toFixed(2);
+    const gsLon = +(aLon + (rand() - 0.5) * 0.2).toFixed(2);
 
     // Drone flies directly above the ground station (3–6 km).
     const drnAlt = +(3 + rand() * 3).toFixed(1);
